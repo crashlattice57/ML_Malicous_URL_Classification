@@ -88,7 +88,6 @@ def predict():
     y_pred = clf.predict(X)
     # return the predictions as a JSON response
     #print(y_pred)
-    print(type(y_pred))
     return jsonify({'prediction': str(y_pred[0])})
 
 
