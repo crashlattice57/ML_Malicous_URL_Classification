@@ -131,7 +131,7 @@ df['special_chars_count'] = [counts['special_chars_count'] for counts in special
 
 
 
-X = df.drop(["type","url"],axis=1)
+X = df.drop(["type","url","url_attributes"],axis=1)
 y = df["type"]
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=101)
@@ -148,7 +148,6 @@ pipeline = Pipeline([
 
 pipeline.fit(X_train,y_train)
 
-scaler = pipeline.named_steps["scaler"]
 
 
 y_pred = pipeline.predict(X_test)
@@ -156,9 +155,6 @@ y_pred = pipeline.predict(X_test)
 plot_confusion_matrix(pipeline,X_test,y_test)
 
 print(classification_report(y_test,y_pred))
-
-
-
 
 
 
@@ -196,36 +192,69 @@ def preprocess_input(input_data):
     df['special_chars_count'] = [counts['special_chars_count'] for counts in special_char_counts]
     for attribute in ['scheme', 'netloc', 'path', 'params', 'query', 'fragment']:
         df[f"{attribute}_present"] = df['url'].apply(lambda x: extract_url_attributes(x)[f"{attribute}_present"])
-    return df
-
-test = preprocess_input("hahahaha")
-
-
-rfc.predict(preprocess_input("https://chat.openai.com/"))
-
-processed = preprocess_input("www.google.com/13401840184018401840184lj242l4jl4j1")
-
-y_pred = rfc.predict(X_test)
-
-confusion_matrix(y_test,y_pred)
-
-plot_confusion_matrix(rfc,X_test,y_test)
-
-print(classification_report(y_test,y_pred))
-
-import pickle
-
-with open("rfc.pk1", "wb") as m:
-    pickle.dump(rfc, m)
+        return df.drop(["url","type","url_attributes","scheme_present"],axis=1)
+test = preprocess_input("www.google.com")
 
 
-        
+pipeline.predict(preprocess_input("www.google.com"))
+
+pipeline.predict_proba(preprocess_input("www.google.com"))
+
+for idx,value in enumerate(df.loc[df["type"] == "malware", "url"][0:25]):
+    proba = pipeline.predict_proba(preprocess_input(value))
+    proba_percent = proba * 100
+    print(f"{value}\n")
+    for i, class_name in enumerate(pipeline.classes_):
+        print(f"{class_name}: {proba_percent[0][i]:.2f}%")
+    print("\n")
+
+#df.loc[df["type"] == "malware", "url"]
+
+pipeline.named_steps["random_forest"].feature_importances_
+
+# Get the feature importances from the random forest classifier in the pipelin
+
     
-for idx,value in enumerate(X_test[0:25]):
-    if y_test.iloc[idx] != rfc.predict(value):
-        correct = "Incorrect Prediction"
-    else:
-        correct = "Correct"
-        
-    print(f"True Value: {y_test.iloc[idx]}\tPrediction: {rfc.predict(value.reshape(1,-1))[0]}\t{correct}")
-    
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+
+# Create a list of the original column names
+original_column_names = list(X_train.columns)
+
+# Fit a StandardScaler to the training data and transform it
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+
+# Fit a random forest classifier to the scaled training data
+rf = RandomForestClassifier(n_estimators=100, random_state=42)
+rf.fit(X_train_scaled, y_train)
+
+# Get the feature importances from the random forest classifier
+importances = rf.feature_importances_
+
+# Map the feature importances to the original column names
+importances_dict = dict(zip(original_column_names, importances))
+
+# Create a DataFrame with the feature names and importances
+importances_df = pd.DataFrame({"feature": list(importances_dict.keys()), "importance": list(importances_dict.values())})
+
+# Sort the DataFrame by importance in descending order
+importances_df = importances_df.sort_values(by="importance", ascending=False)
+
+# Print the DataFrame
+print(importances_df)
+
+importance_df = pd.DataFrame({
+    'feature': X.columns,
+    'importance': pipeline.named_steps['random_forest'].feature_importances_ * 100
+})
+importance_df = importance_df.sort_values('importance', ascending=False)
+print(importance_df)
+
+for idx,value in enumerate(df.loc[df["type"] == "defacement", "url"][0:25]):
+    proba = pipeline.predict_proba(preprocess_input(value))
+    proba_percent = proba * 100
+    print(f"{value}\n")
+    for i, class_name in enumerate(pipeline.classes_):
+        print(f"{class_name}: {proba_percent[0][i]:.2f}%")
+    print("\n")
